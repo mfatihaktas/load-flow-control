@@ -8,7 +8,7 @@ class Msg():
 		self.dst_id = dst_id
 
 	def __repr__(self):
-		return "Msg(\n\t id= {} \n\t payload= {} \n\t src_id= {} \n\t dst_id= {})".format(self._id, self.payload, self.src_id, self.dst_id)
+		return "Msg(id= {} \n\t payload= {} \n\t src_id= {} \n\t dst_id= {})".format(self._id, self.payload, self.src_id, self.dst_id)
 
 	def to_str(self):
 		return jsonpickle.encode(self)

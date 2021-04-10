@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import sys, socket, socketserver, getopt, threading, subprocess, json
+import sys, socket, socketserver, getopt, threading, subprocess, json, time
 
 from msg import *
 from debug_utils import *
@@ -24,15 +24,19 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
 		msg_str = self.request.recv(msg_len)
 		msg = msg_from_str(msg_str)
-		cur_thread = threading.current_thread()
-		log(DEBUG, "recved", thread_name=cur_thread.name, msg=msg)
+		# cur_thread = threading.current_thread()
+		log(DEBUG, "recved", msg=msg)
 
 		if msg.payload.size_inbs > 0:
-			log(DEBUG, 'started recving the payload', thread_name=cur_thread.name)
 			total_size = msg.payload.size_inbs
+			log(DEBUG, 'will recv payload', total_size=total_size)
 			while total_size > 0:
-				total_size -= sys.getsizeof(self.request.recv(min(total_size, 10*1024)))
-				log(DEBUG, 'finished recving the payload', thread_name=cur_thread.name, total_size=msg.payload.size_inbs)
+				recved_size = sys.getsizeof(self.request.recv(min(total_size, 10*1024)))
+				# data = self.request.recv(1)
+				# recved_size = sys.getsizeof(data)
+				log(DEBUG, 'recved', size=recved_size)
+				total_size -= recved_size
+			log(DEBUG, 'finished recving the payload', total_size=msg.payload.size_inbs)
 
 		self.server.call_back(msg)
 
@@ -104,7 +108,7 @@ class Commer():
 
 		msg.src_id = self._id
 		# TODO: Payload is generated synthetically for now
-		payload = bytearray(msg.payload.size_inbs)
+		payload = ('0' * msg.payload.size_inbs).encode('utf-8') # bytearray(msg.payload.size_inbs)
 		msg.payload.size_inbs = sys.getsizeof(payload)
 		
 		msg_str = msg.to_str().encode('utf-8')
@@ -117,7 +121,9 @@ class Commer():
 		log(DEBUG, "sent msg", msg=msg)
 		
 		log(DEBUG, "sending payload")
+		# time.sleep(5)
 		socket.sendall(payload)
+		socket.sendall(b'')
 		log(DEBUG, "sent payload", payload_size=msg.payload.size_inbs)
 	
 	def broadcast(self, msg):

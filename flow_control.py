@@ -15,9 +15,9 @@ class FlowControlServer():
 		return "FlowControlServer(id= {})".format(self._id)
 
 	def push(self, job):
-		check(job.src_id in self.pid__q_m, "Job is from an unknown source", job=job)
+		check(job.origin_id in self.pid__q_m, "Job is from an unknown source", job=job)
 		
-		self.pid__q_m[job.src_id].append(job)
+		self.pid__q_m[job.origin_id].append(job)
 		log(DEBUG, "pushed", job=job)
 	
 	def pop(self):

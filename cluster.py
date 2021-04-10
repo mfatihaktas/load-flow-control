@@ -5,11 +5,11 @@ from debug_utils import *
 from msg import *
 
 class Cluster():
-	def __init__(self, fc_server, fc_client, handle_result, max_q_local_len=20):
+	def __init__(self, fc_server, fc_client, handle_result, max_len_local_q=1):
 		self.fc_server = fc_server
 		self.fc_client = fc_client
 		self.handle_result = handle_result
-		self.max_q_local_len = max_q_local_len
+		self.max_len_local_q = max_len_local_q
 		
 		self.q = deque()
 
@@ -18,16 +18,16 @@ class Cluster():
 		t = threading.Thread(target=self.run, daemon=True)
 		t.start()
 
-	def put(self, job, typ='local'):
+	def put(self, job, src='local'):
 		log(DEBUG, "recved", job=job)
 
-		if typ == 'local':
-			if len(self.q) < self.max_q_local_len:
+		if src == 'local':
+			if len(self.q) < self.max_len_local_q:
 				self.q.append(job)
-				log(DEBUG, "put into local q", job=job)
+				log(DEBUG, "put into local q", job=job, len_q=len(self.q))
 			else:
 				self.fc_client.push(job)
-		elif typ == 'remote':
+		elif src == 'remote':
 			self.fc_server.push(job)
 
 		if self.is_waiting_for_ajob:
