@@ -4,7 +4,7 @@ echo $1 $2 $3
 PY=python3
 
 if [ $1 = 'n' ]; then
-  sudo $PY net.py
+  $PY net.py
 elif [ $1 = 'c' ]; then
   # [ -z "$2" ] && { echo "Which controller [0, *] ?"; exit 1; }
   $PY comm.py --ip_l=10.0.0.1,10.0.0.2

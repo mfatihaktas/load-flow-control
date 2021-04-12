@@ -19,6 +19,7 @@ class FlowControlServer():
 		
 		self.pid__q_m[job.origin_id].append(job)
 		log(DEBUG, "pushed", job=job)
+		return True
 	
 	def pop(self):
 		for _ in range(self.num_peers):
@@ -54,10 +55,10 @@ class FlowControlClient():
 				self.num_jobs_pushed += 1
 				log(DEBUG, "sent to pid= {}".format(pid), job=job)
 				self.pid_wsize_m[pid] -= 1
-				return
+				return True
 		log(DEBUG, "dropping", job=job)
+		return False
 
-	def handle_result(result):
-		pid = result.origin_id
-		self.pid_wsize_m[pid] += 1
-		log(DEBUG, "inced wsize", pid=pid, wsize=self.pid_wsize_m[pid])
+	def handle_result(self, from_id, result):
+		self.pid_wsize_m[from_id] += 1
+		log(DEBUG, "inced wsize", from_id=from_id, wsize=self.pid_wsize_m[from_id])

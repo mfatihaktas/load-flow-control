@@ -18,27 +18,33 @@ MSG_LEN_HEADER_SIZE = 10
 
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 	def handle(self):
-		msg_len_header = self.request.recv(MSG_LEN_HEADER_SIZE)
-		log(DEBUG, "recved", msg_len_header=msg_len_header)
-		msg_len = int(msg_len_header)
+		while True:
+			log(DEBUG, "waiting to recv msg_len_header")
+			msg_len_header = self.request.recv(MSG_LEN_HEADER_SIZE)
+			log(DEBUG, "recved", msg_len_header=msg_len_header)
+			msg_len = int(msg_len_header)
+			if msg_len == 0:
+				log(DEBUG, "Recved end signal...terminating the request handler.")
+				return
 
-		msg_str = self.request.recv(msg_len)
-		msg = msg_from_str(msg_str)
-		# cur_thread = threading.current_thread()
-		log(DEBUG, "recved", msg=msg)
+			msg_str = self.request.recv(msg_len)
+			msg = msg_from_str(msg_str)
+			# cur_thread = threading.current_thread()
+			log(DEBUG, "recved", msg=msg)
 
-		if msg.payload.size_inbs > 0:
-			total_size = msg.payload.size_inbs
-			log(DEBUG, 'will recv payload', total_size=total_size)
-			while total_size > 0:
-				recved_size = sys.getsizeof(self.request.recv(min(total_size, 10*1024)))
-				# data = self.request.recv(1)
-				# recved_size = sys.getsizeof(data)
-				log(DEBUG, 'recved', size=recved_size)
-				total_size -= recved_size
-			log(DEBUG, 'finished recving the payload', total_size=msg.payload.size_inbs)
+			if msg.payload.size_inBs > 0:
+				total_size = msg.payload.size_inBs
+				log(DEBUG, 'will recv payload', total_size=total_size)
+				while total_size > 0:
+					to_recv_size = min(total_size, 10*1024)
+					self.request.recv(to_recv_size)
+					# data = self.request.recv(1)
+					# recved_size = sys.getsizeof(data)
+					log(DEBUG, 'recved', size=to_recv_size)
+					total_size -= to_recv_size
+				log(DEBUG, 'finished recving the payload', total_size=msg.payload.size_inBs)
 
-		self.server.call_back(msg)
+			self.server.call_back(msg)
 
 def get_eth0_ip():
 	# search and bind to eth0 ip address
@@ -73,15 +79,22 @@ class Commer():
 		log(DEBUG, "id= {}, listen_ip= {}, listen_port= {}".format(self._id, listen_ip, listen_port))
 
 		self.server = ThreadedTCPServer(self._id, (listen_ip_l[self._id], listen_port), handle_msg)
-		server_thread = threading.Thread(target=self.server.serve_forever)
-		server_thread.daemon = True
-		server_thread.start()
+		self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+		self.server_thread.start()
 		log(DEBUG, "server started running in thread")
 
 		self.peer_id__socket_m = {}
 
 	def __repr__(self):
 		return "Commer(id= {}, listen_ip_l= {}, listen_port= {})".format(self._id, self.listen_ip_l, self.listen_port)
+
+	def close(self):		
+		for peer_id, sock in self.peer_id__socket_m.items():
+			sock.sendall(msg_len_header(0))
+			log(DEBUG, "sent end signal", peer_id=peer_id)
+			sock.close()
+			log(DEBUG, "closed socket", peer_id=peer_id)
+		self.server.shutdown()
 
 	def connect_to(self, to_id):
 		check(0 <= to_id < len(self.listen_ip_l) and to_id != self._id, "Wrong to_id= {}".format(to_id))	
@@ -107,25 +120,26 @@ class Commer():
 		socket = self.peer_id__socket_m[msg.dst_id]
 
 		msg.src_id = self._id
-		# TODO: Payload is generated synthetically for now
-		payload = ('0' * msg.payload.size_inbs).encode('utf-8') # bytearray(msg.payload.size_inbs)
-		msg.payload.size_inbs = sys.getsizeof(payload)
 		
 		msg_str = msg.to_str().encode('utf-8')
-		msg_size = sys.getsizeof(msg_str)
+		msg_size = len(msg_str)
 		header = msg_len_header(msg_size)
 		socket.sendall(header)
 		log(DEBUG, "sent header", header_size=sys.getsizeof(header))
 
 		socket.sendall(msg_str)
 		log(DEBUG, "sent msg", msg=msg)
-		
+
+		# TODO: Payload is generated synthetically for now
+		payload = bytearray(msg.payload.size_inBs)
 		log(DEBUG, "sending payload")
-		# time.sleep(5)
 		socket.sendall(payload)
-		socket.sendall(b'')
-		log(DEBUG, "sent payload", payload_size=msg.payload.size_inbs)
-	
+		log(DEBUG, "sent payload", payload_size=msg.payload.size_inBs)
+
+	def send_close_signal(self, peer_id):
+		check(peer_id in self.peer_id__socket_m, "Unexpected peer_id= {}".format(peer_id))
+		socket = self.peer_id__socket_m[peer_id]
+
 	def broadcast(self, msg):
 		for peer_id in self.peer_id__socket_m:
 			msg.dst_id = peer_id
@@ -156,7 +170,7 @@ def test(argv):
 	c.connect_to_peers()
 	
 	input("Enter for broadcasting to peers...")
-	msg = Msg(_id=0, payload=Job(_id=0, serv_time=1, size_inbs=1))
+	msg = Msg(_id=0, payload=Job(_id=0, serv_time=1, size_inBs=1))
 	c.broadcast(msg)
 
 if __name__ == '__main__':

@@ -21,19 +21,23 @@ class Cluster():
 	def put(self, job, src='local'):
 		log(DEBUG, "recved", job=job)
 
+		r = False
 		if src == 'local':
 			if len(self.q) < self.max_len_local_q:
 				self.q.append(job)
 				log(DEBUG, "put into local q", job=job, len_q=len(self.q))
+				r = True
 			else:
-				self.fc_client.push(job)
+				r = self.fc_client.push(job)
 		elif src == 'remote':
-			self.fc_server.push(job)
+			r = self.fc_server.push(job)
 
 		if self.is_waiting_for_ajob:
 			with self.wait_for_ajob:
 				self.wait_for_ajob.notifyAll()
 				log(DEBUG, "notified")
+
+		return r
 	
 	def next_in_line(self):
 		if len(self.q) > 0:
@@ -58,6 +62,8 @@ class Cluster():
 			# 	continue
 			
 			log(DEBUG, "will serv", job=job)
-			time.sleep(job.serv_time)
+			time.sleep(job.serv_time / 1000)
 			log(DEBUG, "finished serving", job=job)
-			self.handle_result(result_from_job(job))
+
+			r = result_from_job(job)
+			self.handle_result(r)

@@ -17,11 +17,11 @@ def msg_from_str(s):
 	return jsonpickle.decode(s)
 
 class Payload():
-	def __init__(self, _id, origin_id, typ, size_inbs):
+	def __init__(self, _id, origin_id, typ, size_inBs):
 		self._id = _id
 		self.origin_id = origin_id
 		self.typ = typ
-		self.size_inbs = size_inbs
+		self.size_inBs = size_inBs
 
 	def __hash__(self):
 		return hash((self._id, self.origin_id))
@@ -39,19 +39,19 @@ class Payload():
 		return self.typ == 'r'
 
 class Job(Payload):
-	def __init__(self, _id, serv_time, size_inbs, origin_id=None):
-		super().__init__(_id, origin_id, typ='j', size_inbs=size_inbs)
+	def __init__(self, _id, serv_time, size_inBs, origin_id=None):
+		super().__init__(_id, origin_id, typ='j', size_inBs=size_inBs)
 		self.serv_time = serv_time
 
 	def __repr__(self):
-		return "Job(id= {}, origin_id= {}, serv_time= {}, size_inbs= {})".format(self._id, self.origin_id, self.serv_time, self.size_inbs)
+		return "Job(id= {}, origin_id= {}, serv_time= {}, size_inBs= {})".format(self._id, self.origin_id, self.serv_time, self.size_inBs)
 
 class Result(Payload):
 	def __init__(self, _id, origin_id=None):
-		super().__init__(_id, origin_id, typ='r', size_inbs=0)
+		super().__init__(_id, origin_id, typ='r', size_inBs=0)
 
 	def __repr__(self):
-		return "Result(id= {}, origin_id= {}, size_inbs= {})".format(self._id, self.origin_id, self.size_inbs)
+		return "Result(id= {}, origin_id= {}, size_inBs= {})".format(self._id, self.origin_id, self.size_inBs)
 
 def result_from_job(job):
 	return Result(job._id, job.origin_id)
