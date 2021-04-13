@@ -10,6 +10,8 @@ elif [ $1 = 'c' ]; then
   $PY comm.py --ip_l=10.0.0.1,10.0.0.2
 elif [ $1 = 'e' ]; then
   $PY edge_cloud.py --ip_l=10.0.0.1,10.0.0.2
+elif [ $1 = 'r' ]; then
+  $PY rvs.py
 else
   echo "Arg did not match!"
 fi

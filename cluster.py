@@ -3,14 +3,16 @@ from collections import deque
 
 from debug_utils import *
 from msg import *
+from controller import *
 
 class Cluster():
-	def __init__(self, fc_server, fc_client, handle_result, max_len_local_q=1):
+	def __init__(self, _id, fc_server, fc_client, handle_result, max_delay):
+		self._id = _id
 		self.fc_server = fc_server
 		self.fc_client = fc_client
 		self.handle_result = handle_result
-		self.max_len_local_q = max_len_local_q
-		
+
+		self.delay_controller = DelayController(_id, max_delay)
 		self.q = deque()
 
 		self.wait_for_ajob = threading.Condition()
@@ -23,7 +25,7 @@ class Cluster():
 
 		r = False
 		if src == 'local':
-			if len(self.q) < self.max_len_local_q:
+			if self.delay_controller.put():
 				self.q.append(job)
 				log(DEBUG, "put into local q", job=job, len_q=len(self.q))
 				r = True
@@ -38,7 +40,13 @@ class Cluster():
 				log(DEBUG, "notified")
 
 		return r
-	
+
+	def update_delay_controller(self, t, from_id):
+		if from_id == self._id: # local
+			self.delay_controller.update(t)
+		else:
+			self.fc_client.update_delay_controller(from_id, t)
+
 	def next_in_line(self):
 		if len(self.q) > 0:
 			return self.q.popleft()
@@ -55,14 +63,14 @@ class Cluster():
 					log(DEBUG, "a job has arrived!")
 					self.is_waiting_for_ajob = False
 				continue
-				
+
 			# waiting_time = time.time() - job.enter_time
 			# if waiting_time >= job.max_waiting_time:
 			# 	log(WARNING, "waiting_time= {} > max_waiting_time= {}, dropping the job".format(waiting_time, job.max_waiting_time), job=job)
 			# 	continue
-			
+
 			log(DEBUG, "will serv", job=job)
-			time.sleep(job.serv_time / 1000)
+			time.sleep(job.serv_time)
 			log(DEBUG, "finished serving", job=job)
 
 			r = result_from_job(job)

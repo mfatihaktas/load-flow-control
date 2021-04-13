@@ -117,9 +117,11 @@ class TPareto(RV): # Truncated
 		return s
 
 class DiscreteRV():
-	def __init__(self, p_l, v_l):
+	def __init__(self, p_l, v_l, norm_factor=1):
 		self.p_l = p_l
 		self.v_l = v_l
+		self.norm_factor = norm_factor
+
 		self.dist = scipy.stats.rv_discrete(name='discrete', values=(v_l, p_l))
 
 	def __repr__(self):
@@ -128,10 +130,10 @@ class DiscreteRV():
 			'\t rv_l= {}\n'.format(self.rv_l)
 
 	def mean(self):
-		return self.dist.mean()
+		return self.dist.mean() / self.norm_factor
 
 	def sample(self):
-		return self.dist.rvs()
+		return self.dist.rvs() / self.norm_factor
 
 class SumOfRVs(RV):
 	def __init__(self, rv_l):
@@ -244,4 +246,7 @@ def CoeffVar(X, a=None, b=None):
 	return StdX / EX
 
 if __name__ == '__main__':
-	test_moment()
+	# test_moment()
+	rv = DiscreteRV(p_l=[1], v_l=[0.023])
+	s = rv.sample()
+	log(DEBUG, "", s=s)

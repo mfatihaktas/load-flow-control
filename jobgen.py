@@ -20,13 +20,13 @@ class JobGen():
 		while 1:
 			inter_ar_time = self.inter_ar_time_rv.sample() # random.expovariate(self.rate)
 			log(DEBUG, "sleeping ...", inter_ar_time=inter_ar_time)
-			time.sleep(inter_ar_time / 1000)
+			time.sleep(inter_ar_time)
 
 			self.num_jobs_sent += 1
 			self.out.put(
 				Job(_id = self.num_jobs_sent,
 						serv_time = self.serv_time_rv.sample(),
-						size_inBs = self.size_inBs_rv.sample()))
+						size_inBs = int(self.size_inBs_rv.sample())))
 
 			if self.num_jobs_sent == self.num_jobs_to_send:
 				return

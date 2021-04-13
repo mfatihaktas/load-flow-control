@@ -17,7 +17,7 @@ class MyTopo(Topo):
 		e2 = self.addHost('e2')
 		s1 = self.addSwitch('s1')
 
-		link_opts = dict(bw=10, delay='5ms', loss=0, max_queue_size=1000, use_htb=True)
+		link_opts = dict(bw=10, delay='1ms', loss=0, max_queue_size=1000, use_htb=True)
 		# wide_linkopts = dict(bw=1, delay='50ms', loss=0, max_queue_size=1000, use_htb=True)
 		# dsa_linkopts = dict(bw=1000, delay='1ms', loss=0, max_queue_size=10000, use_htb=True)
 		self.addLink(e1, s1, **link_opts)

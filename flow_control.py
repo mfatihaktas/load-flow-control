@@ -2,6 +2,7 @@
 
 from collections import deque
 from comm import *
+from controller import *
 
 # pid : peer_id
 
@@ -16,29 +17,29 @@ class FlowControlServer():
 
 	def push(self, job):
 		check(job.origin_id in self.pid__q_m, "Job is from an unknown source", job=job)
-		
+
 		self.pid__q_m[job.origin_id].append(job)
 		log(DEBUG, "pushed", job=job)
 		return True
-	
+
 	def pop(self):
 		for _ in range(self.num_peers):
 			q = self.pid__q_m[self.next_pid_pop_from_q[0]]
 			self.next_pid_pop_from_q.rotate(-1)
 			if len(q) > 0:
 				return q.popleft()
-		
+
 		return None
 
 class FlowControlClient():
-	def __init__(self, pid_l, commer, initial_window_size=1):
+	def __init__(self, pid_l, commer, max_delay):
 		self.pid_l = pid_l
 		self.commer = commer
 
-		self.pid_wsize_m = {pid: initial_window_size for pid in pid_l}
+		self.pid_delay_controller_m = {pid: DelayController(pid, max_delay) for pid in pid_l}
 		self.num_peers = len(self.pid_l)
 		self.next_pid_push_to_q = deque(self.pid_l)
-		
+
 		self.num_jobs_pushed = 0
 
 	def __repr__(self):
@@ -50,15 +51,14 @@ class FlowControlClient():
 		for _ in range(self.num_peers):
 			pid = self.next_pid_push_to_q[0]
 			self.next_pid_push_to_q.rotate(-1)
-			if self.pid_wsize_m[pid] > 0:
+			if self.pid_delay_controller_m[pid].put():
 				self.commer.send(msg = Msg(_id=self.num_jobs_pushed, payload=job, dst_id=pid))
 				self.num_jobs_pushed += 1
 				log(DEBUG, "sent to pid= {}".format(pid), job=job)
-				self.pid_wsize_m[pid] -= 1
 				return True
 		log(DEBUG, "dropping", job=job)
 		return False
 
-	def handle_result(self, from_id, result):
-		self.pid_wsize_m[from_id] += 1
-		log(DEBUG, "inced wsize", from_id=from_id, wsize=self.pid_wsize_m[from_id])
+	def update_delay_controller(self, peer_id, t):
+		self.pid_delay_controller_m[peer_id].update(t)
+		log(DEBUG, "done", peer_id=peer_id, t=t)

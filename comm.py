@@ -75,7 +75,7 @@ class Commer():
 				self._id = _id
 				break
 		check(self._id is not None, "id has not been set")
-			
+
 		log(DEBUG, "id= {}, listen_ip= {}, listen_port= {}".format(self._id, listen_ip, listen_port))
 
 		self.server = ThreadedTCPServer(self._id, (listen_ip_l[self._id], listen_port), handle_msg)
@@ -88,7 +88,7 @@ class Commer():
 	def __repr__(self):
 		return "Commer(id= {}, listen_ip_l= {}, listen_port= {})".format(self._id, self.listen_ip_l, self.listen_port)
 
-	def close(self):		
+	def close(self):
 		for peer_id, sock in self.peer_id__socket_m.items():
 			sock.sendall(msg_len_header(0))
 			log(DEBUG, "sent end signal", peer_id=peer_id)
@@ -97,17 +97,17 @@ class Commer():
 		self.server.shutdown()
 
 	def connect_to(self, to_id):
-		check(0 <= to_id < len(self.listen_ip_l) and to_id != self._id, "Wrong to_id= {}".format(to_id))	
+		check(0 <= to_id < len(self.listen_ip_l) and to_id != self._id, "Wrong to_id= {}".format(to_id))
 		try:
 			sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			sock.connect((self.listen_ip_l[to_id], self.listen_port))
 		except IOError as e:
 			if e.errno == errno.EPIPE: # insuffient buffer at the server side
 				assert_("broken pipe err")
-			
+
 		log(DEBUG, "connected", _id=self._id, to_id=to_id)
 		self.peer_id__socket_m[to_id] = sock
-	
+
 	def connect_to_peers(self):
 		for peer_id, ip in enumerate(self.listen_ip_l):
 			if self._id == peer_id:
@@ -120,12 +120,12 @@ class Commer():
 		socket = self.peer_id__socket_m[msg.dst_id]
 
 		msg.src_id = self._id
-		
+
 		msg_str = msg.to_str().encode('utf-8')
 		msg_size = len(msg_str)
 		header = msg_len_header(msg_size)
 		socket.sendall(header)
-		log(DEBUG, "sent header", header_size=sys.getsizeof(header))
+		log(DEBUG, "sent header")
 
 		socket.sendall(msg_str)
 		log(DEBUG, "sent msg", msg=msg)
@@ -154,7 +154,7 @@ def test(argv):
 		opts, args = getopt.getopt(argv, '', ['ip_l='])
 	except getopt.GetoptError:
 		assert_("Wrong args;", opts=opts, args=args)
-	
+
 	for opt, arg in opts:
 		if opt == '--ip_l':
 			ip_l = arg
@@ -165,10 +165,10 @@ def test(argv):
 	ip_l = [ip for ip in ip_l.split(',')]
 
 	c = Commer(ip_l, handle_msg=handle_msg)
-	
+
 	input("Enter for connecting to peers...")
 	c.connect_to_peers()
-	
+
 	input("Enter for broadcasting to peers...")
 	msg = Msg(_id=0, payload=Job(_id=0, serv_time=1, size_inBs=1))
 	c.broadcast(msg)
