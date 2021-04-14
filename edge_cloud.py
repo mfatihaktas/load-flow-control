@@ -7,7 +7,7 @@ from jobgen import *
 from plot_utils import *
 
 class EdgeCloud():
-	def __init__(self, listen_ip_l, max_delay, flow_win_size):
+	def __init__(self, listen_ip_l, max_delay):
 		self.max_delay = max_delay
 		self.commer = Commer(listen_ip_l, self.handle_msg)
 		self._id = self.commer._id
@@ -17,10 +17,10 @@ class EdgeCloud():
 		# sleep(3)
 		self.commer.connect_to_peers()
 
-		pid_l = [i for i in range(len(listen_ip_l)) if i != self._id]
+		pid_l = list(range(len(listen_ip_l)))
 		fc_server = FlowControlServer(pid_l)
-		self.fc_client = FlowControlClient(pid_l, self.commer, flow_win_size)
-		self.cluster = Cluster(self._id, fc_server, self.fc_client, self.handle_result, max_delay)
+		fc_client = FlowControlClient(self._id, pid_l, fc_server, self.commer, max_delay)
+		self.cluster = Cluster(self._id, fc_server, fc_client, self.handle_result, max_delay)
 
 		self.job_info_m = {}
 
@@ -30,14 +30,14 @@ class EdgeCloud():
 	def put(self, job):
 		job.origin_id = self._id
 		self.job_info_m[job] = {'enter_time': time.time()}
-		if self.cluster.put(job, src='local') == False:
-			self.job_info_m[job] = {'fate': 'dropped'}
+		if self.cluster.put(job) == False:
+			self.job_info_m[job].update({'fate': 'dropped'})
 
 	def handle_msg(self, msg):
 		log(DEBUG, "handling", msg=msg)
 		payload = msg.payload
 		if payload.is_job():
-			self.cluster.put(payload, src='remote')
+			self.cluster.put(payload)
 		elif payload.is_result():
 			self.reg_result(payload, msg.src_id)
 
@@ -54,9 +54,6 @@ class EdgeCloud():
 		check(result in self.job_info_m, "Result for no job is recved", result=result, from_id=from_id)
 		info = self.job_info_m[result]
 		t = time.time() - info['enter_time']
-		if t < 0:
-			log(WARNING, "Negative turnaround time", result=result, t=t)
-			return
 
 		info.update(
 			{
@@ -65,7 +62,7 @@ class EdgeCloud():
 				'T': 1000*t
 			})
 
-		self.cluster.update_delay_controller(t, from_id)
+		self.cluster.update_delay_controller(from_id, t)
 
 		log(DEBUG, "reged", result=result)
 
@@ -82,6 +79,10 @@ class EdgeCloud():
 			elif fate == 'finished':
 				from_id = info['from_id']
 				T = info['T']
+				if T < 0:
+					log(WARNING, "Negative turnaround time", job=job, T=T)
+					continue
+
 				if self._id == from_id:
 					T_local_l.append(T)
 				else:
@@ -124,7 +125,7 @@ def parse_argv(argv):
 def test(argv):
 	ip_l = parse_argv(argv)
 
-	ec = EdgeCloud(ip_l, max_delay=0.07, flow_win_size=1)
+	ec = EdgeCloud(ip_l, max_delay=0.07)
 	log_to_file('e{}.log'.format(ec._id))
 
 	# input("Enter for putting job...\n")
@@ -138,12 +139,12 @@ def test(argv):
 
 	avg_serv_time = 0.01
 	mu = float(1/avg_serv_time)
-	ar = 0.9*mu if ec._id == 0 else 0.2*mu
+	ar = 0.9*mu if ec._id == 0 else 0.00000002*mu
 	jg = JobGen(inter_ar_time_rv=Exp(ar),
-							serv_time_rv=DiscreteRV(p_l=[1], v_l=[avg_serv_time*1000], norm_factor=1000), # Exp(mu),
+							serv_time_rv=Exp(mu), # DiscreteRV(p_l=[1], v_l=[avg_serv_time*1000], norm_factor=1000),
 							size_inBs_rv=DiscreteRV(p_l=[1], v_l=[1]),
 							out=ec,
-							num_jobs_to_send=2000)
+							num_jobs_to_send=1000)
 
 	input("Enter to print job_info_m...\n")
 	# log(DEBUG, "", job_info_m=ec.job_info_m)

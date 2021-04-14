@@ -32,8 +32,10 @@ class FlowControlServer():
 		return None
 
 class FlowControlClient():
-	def __init__(self, pid_l, commer, max_delay):
+	def __init__(self, _id, pid_l, fc_server, commer, max_delay):
+		self._id = _id
 		self.pid_l = pid_l
+		self.fc_server = fc_server
 		self.commer = commer
 
 		self.pid_delay_controller_m = {pid: DelayController(pid, max_delay) for pid in pid_l}
@@ -43,7 +45,7 @@ class FlowControlClient():
 		self.num_jobs_pushed = 0
 
 	def __repr__(self):
-		return "FlowControlClient(pid_l= {})".format(self.pid_l)
+		return "FlowControlClient(id= {}, pid_l= {})".format(self._id, self.pid_l)
 
 	def push(self, job):
 		log(DEBUG, "recved", job=job)
@@ -51,11 +53,16 @@ class FlowControlClient():
 		for _ in range(self.num_peers):
 			pid = self.next_pid_push_to_q[0]
 			self.next_pid_push_to_q.rotate(-1)
-			if self.pid_delay_controller_m[pid].put():
-				self.commer.send(msg = Msg(_id=self.num_jobs_pushed, payload=job, dst_id=pid))
-				self.num_jobs_pushed += 1
-				log(DEBUG, "sent to pid= {}".format(pid), job=job)
+			log(DEBUG, "***", pid=pid)
+			if pid == self._id:
+				self.fc_server.push(job)
 				return True
+			else:
+				if self.pid_delay_controller_m[pid].put():
+					self.commer.send(msg = Msg(_id=self.num_jobs_pushed, payload=job, dst_id=pid))
+					self.num_jobs_pushed += 1
+					log(DEBUG, "sent to pid= {}".format(pid), job=job)
+					return True
 		log(DEBUG, "dropping", job=job)
 		return False
 
